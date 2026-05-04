@@ -7,10 +7,22 @@ Rename Mexican payroll PDF and XML files based on RFC and payment date.
 - Finds PDF/XML file pairs in a folder
 - Extracts RFC from `cfdi:Receptor` in XML
 - Extracts payment date from `nomina12:Nomina FechaPago` in XML
-- Renames both files to: **RFC-YYYY-MM-Q#** format
-  - **Q1** = Payment days 1-15
-  - **Q2** = Payment days 16-31
-- Skips files already in correct format
+- Reads the period type from `nomina12:Receptor/@PeriodicidadPago` (SAT catalog) and **auto-detects** the suffix — no mode to pick
+- Renames both files to: **RFC-YYYY-MM[-period]** format, month-anchored:
+
+  | Periodicity | Suffix | Rule (day of FechaPago) |
+  |---|---|---|
+  | Quincenal | `Q1` / `Q2` | 1–15 → Q1, 16–31 → Q2 |
+  | Semanal | `S1`–`S5` | `ceil(day/7)` |
+  | Catorcenal | `C1`–`C3` | `ceil(day/14)` |
+  | Decenal | `D1`–`D3` | `ceil(day/10)` |
+  | Diario | `J01`–`J31` | day of month (J = Jornal) |
+  | Mensual | *(none)* | `RFC-YYYY-MM` |
+  | Bimestral | `B` | `RFC-YYYY-MM-B` |
+  | Otra / missing | falls back to `Q1`/`Q2` and logs a warning | |
+
+- Remembers the last folder used (stored in `%APPDATA%\CFDI_Renamer\config.json`)
+- Skips files already in correct format (any of the suffixes above)
 - Creates detailed log file
 
 ## Example
