@@ -103,9 +103,11 @@ class CFDIRenamer:
                 rfc = receptor.get('Rfc')
 
             fecha_pago = None
+            fecha_final = None
             nomina = root.find('.//nomina12:Nomina', namespaces)
             if nomina is not None:
                 fecha_pago = nomina.get('FechaPago')
+                fecha_final = nomina.get('FechaFinalPago')
 
             # PeriodicidadPago lives on the nomina12:Receptor node
             periodicidad_code = None
@@ -118,9 +120,15 @@ class CFDIRenamer:
             if not fecha_pago:
                 return None, "FechaPago not found in XML"
 
+            # Anchor month/day on the period covered (FechaFinalPago = devengado,
+            # the unified accountant criterion). Fall back to FechaPago if absent.
+            anchor = fecha_final or fecha_pago
+
             return {
                 'rfc': rfc,
                 'fecha_pago': fecha_pago,
+                'fecha_final': fecha_final,
+                'anchor': anchor,
                 'periodicidad_code': periodicidad_code,
                 'periodicidad': PERIODICIDAD.get(periodicidad_code),
             }, None
@@ -130,13 +138,13 @@ class CFDIRenamer:
         except Exception as e:
             return None, f"Error reading XML: {str(e)}"
 
-    def determine_suffix(self, fecha_pago, periodicidad):
+    def determine_suffix(self, anchor_date, periodicidad):
         """
-        Return (suffix, warning) for the given pay date and period type.
+        Return (suffix, warning) for the given anchor date and period type.
         suffix may be '' (monthly). warning is None unless we had to fall back.
         """
         try:
-            day = datetime.strptime(fecha_pago, '%Y-%m-%d').day
+            day = datetime.strptime(anchor_date, '%Y-%m-%d').day
         except Exception:
             return None, None
 
@@ -162,10 +170,10 @@ class CFDIRenamer:
     def generate_new_filename(self, data, extension):
         """Generate new filename: RFC-YYYY-MM[-suffix].extension"""
         try:
-            date_obj = datetime.strptime(data['fecha_pago'], '%Y-%m-%d')
+            date_obj = datetime.strptime(data['anchor'], '%Y-%m-%d')
             year = date_obj.strftime('%Y')
             month = date_obj.strftime('%m')
-            suffix, warning = self.determine_suffix(data['fecha_pago'], data['periodicidad'])
+            suffix, warning = self.determine_suffix(data['anchor'], data['periodicidad'])
 
             if suffix is None:
                 return None, None
